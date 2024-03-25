@@ -10,7 +10,8 @@ import {
     View,
     FlatList,
     Image,
-    TouchableHighlight
+    TouchableOpacity,
+    Alert
 } from 'react-native';
 
 import {
@@ -24,8 +25,14 @@ import FontAwesomeIcon from 'react-native-vector-icons/FontAwesome';
 import AntDesignIcon from 'react-native-vector-icons/AntDesign';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { RootStackParamList } from '../types/types';
-import { ImageSourcePropType } from 'react-native';
-import { itemType } from '../types/types';
+import { useSelector, useDispatch } from 'react-redux';
+import { RootState, AppDispatch } from '../store';
+import { ItemType } from '../types/types';
+import {
+    selectItems,
+    remoteItembyId,
+    removeSelectedItems
+} from '../store/reducers/itemSlice';
 
 type HomeScreenNavigationProp = StackNavigationProp<RootStackParamList, 'Home'>
 
@@ -42,47 +49,26 @@ interface showingType {
     isShowing: boolean
 }
 
-const data: itemType[] = [
-    {
-        id: '1',
-        name: 'My Refrigerator',
-        description: 'The sleek and modern design of our new smart refrigerator will revolutionize the way you experience your kitchen. With advanced features like voice control and a built-in camera for easy inventory management, this appliance is not only stylish but also incredibly functional, Say goodbye to food waste with real-time notifications and personalized mean suggestion based on your inventory. Upgrade your kitchen with this cutting-edge applicance and enjoy a seamless cooking experience like never before.',
-        favor: false,
-        avatar: '../../assets/img/fridge.png'
-    },
-    {
-        id: '2',
-        name: 'Appliance 2',
-        description: 'The sleek and modern design of our new smart refrigerator will revolutionize the way you experience your kitchen. With advanced features like voice control and a built-in camera for easy inventory management, this appliance is not only stylish but also incredibly functional, Say goodbye to food waste with real-time notifications and personalized mean suggestion based on your inventory. Upgrade your kitchen with this cutting-edge applicance and enjoy a seamless cooking experience like never before.',
-        favor: false,
-        avatar: '../../assets/img/fridge.png'
-    },
-    {
-        id: '3',
-        name: 'Appliance 3',
-        description: 'The sleek and modern design of our new smart refrigerator will revolutionize the way you experience your kitchen. With advanced features like voice control and a built-in camera for easy inventory management, this appliance is not only stylish but also incredibly functional, Say goodbye to food waste with real-time notifications and personalized mean suggestion based on your inventory. Upgrade your kitchen with this cutting-edge applicance and enjoy a seamless cooking experience like never before.',
-        favor: false,
-        avatar: '../../assets/img/fridge.png'
-    }
-];
+const emtpyImageUrl = 'file:///storage/emulated/0/Pictures/empty.png'
 
 const Home: React.FC<HomeProps> = ({ navigation }) => {
+    const dispatch = useDispatch();
+    const data = useSelector(selectItems);
+
     const [showingArray, setShowingArray] = useState<showingType[]>([]);
+    const [selectedCount, setSelectedCount] = useState<number>(0);
 
     useEffect(() => {
-        var temp: showingType[] = [];
-        data.map((item) => {
-            temp.push({
-                id: item.id,
-                name: item.name,
-                description: item.description,
-                favor: item.favor,
-                avatar: item.avatar,
-                isShowing: false
-            });
-            setShowingArray(temp);
-        })
-    }, []);
+        const temp: showingType[] = data.map((item) => ({
+            id: item.id,
+            name: item.name,
+            description: item.description,
+            favor: item.favor,
+            avatar: item.avatar,
+            isShowing: false
+        }));
+        setShowingArray(temp);
+    }, [data]);
 
     const isDarkMode = useColorScheme() === 'dark';
 
@@ -101,7 +87,21 @@ const Home: React.FC<HomeProps> = ({ navigation }) => {
         ));
     };
 
-    const _viewDetail = (item: showingType) => {
+    useEffect(() => {
+        let temp = 0;
+        showingArray.forEach(item => {
+            if (item.isShowing) {
+                temp++;
+            }
+        });
+        setSelectedCount(temp);
+    }, [showingArray]);
+
+    const _pageCreate = () => {
+        navigation.navigate('Create');
+    }
+
+    const _pageDetail = (item: showingType) => {
         navigation.navigate('Detail', {
             id: item.id,
             name: item.name,
@@ -112,7 +112,31 @@ const Home: React.FC<HomeProps> = ({ navigation }) => {
     }
 
     const _removeItem = (id: string) => {
-        setShowingArray(prev => prev.filter(item => item.id !== id)) 
+        Alert.alert('Remove', 'Are you sure to remove this?', [
+            {
+                text: 'Cancel',
+                onPress: () => console.log('Cancel Pressed'),
+                style: 'cancel',
+            },
+            { text: 'OK', onPress: () => dispatch(remoteItembyId(id)) },
+        ]);
+    };
+
+    const _remoteSelectedItems = () => {
+        var temp: string[] = [];
+        showingArray.map((item) => {
+            if (item.isShowing === true) {
+                temp.push(item.id);
+            }
+        });
+        Alert.alert('Remove', 'Are you sure to remove selected items?', [
+            {
+                text: 'Cancel',
+                onPress: () => console.log('Cancel Pressed'),
+                style: 'cancel',
+            },
+            { text: 'OK', onPress: () => dispatch(removeSelectedItems(temp)) },
+        ]);
     }
 
     return (
@@ -125,7 +149,12 @@ const Home: React.FC<HomeProps> = ({ navigation }) => {
                 <Text style={styles.appbar_title}>
                     Appliance
                 </Text>
-                <FontAwesomeIcon style={styles.appbar_icon} name="plus" size={30} color="#ffffff" />
+                <TouchableOpacity
+                    style={styles.appbar_icon}
+                    onPress={() => _pageCreate()}
+                >
+                    <FontAwesomeIcon name="plus" size={30} color="#ffffff" />
+                </TouchableOpacity>
             </View>
             {/* <ScrollView
         contentInsetAdjustmentBehavior="automatic"> */}
@@ -135,38 +164,66 @@ const Home: React.FC<HomeProps> = ({ navigation }) => {
                         Appliance: {data.length}
                     </Text>
                     <View style={styles.actions}>
-
+                        {
+                            (selectedCount === 0) ?
+                                <View /> :
+                                <TouchableOpacity onPress={() => _remoteSelectedItems()}>
+                                    <AntDesignIcon name="delete" size={30} color="#000000" />
+                                </TouchableOpacity>
+                        }
                     </View>
                 </View>
                 <FlatList
                     data={showingArray}
                     renderItem={({ item }) =>
-                        <TouchableHighlight key={item.id} onPress={() => _onPressListItem(item.id)}>
-                            <View style={styles.listItem}>
-                                <View style={{ display: 'flex', flexDirection: 'row', gap: 20, marginLeft: 15 }}>
-                                    <Image source={require('../../assets/img/fridge.png')} alt="Gradient" style={{ width: 130, height: 100 }} />
+                        <TouchableOpacity
+                            key={item.id}
+                            onPress={() => _onPressListItem(item.id)}
+                        >
+                            <View style={item.isShowing ? styles.listItem_selected : styles.listItem}>
+                                <View style={{ display: 'flex', flexDirection: 'row', gap: 20, marginHorizontal: 15 }}>
+                                    {item.isShowing ?
+                                        <View>
+                                            {
+                                                item.avatar === '' || null ?
+                                                    <View style={{ backgroundColor: '#7caeb3', width: 130, height: 100 }} /> :
+                                                    <Image source={{ uri: item.avatar }} alt="Gradient" style={{ backgroundColor: '#1577ff', opacity: 0.5, zIndex: 1, width: 130, height: 100 }} />
+                                            }
+                                            {/* <Image source={{ uri: item.avatar === '' || null ? emtpyImageUrl : item.avatar }} alt="Gradient" style={{ backgroundColor: '#0000ff', opacity: 0.5, zIndex: 1, width: 130, height: 100 }} /> */}
+                                            <AntDesignIcon style={{ zIndex: 10, position: 'absolute', left: 20, top: 10 }} name="check" color="#ffffff" size={100} />
+                                        </View> :
+                                        <View>
+                                            {
+                                                item.avatar === '' || null ?
+                                                    <View style={{ backgroundColor: '#8eb481', width: 130, height: 100 }} /> :
+                                                    <Image source={{ uri: item.avatar }} alt="Gradient" style={{ width: 130, height: 100 }} />
+                                            }
+                                        </View>
+                                        // <Image source={{ uri: item.avatar === '' || null ? emtpyImageUrl : item.avatar }} alt="Gradient" style={{ width: 130, height: 100 }} />
+                                    }
                                     <View>
-                                        <Text
-                                            style={{
-                                                color: '#333333',
-                                                fontWeight: 'bold',
-                                                fontSize: 23,
-                                                marginBottom: 10
-                                            }}>
-                                            {item.name}
-                                        </Text>
+                                        <View style={styles.nameWrapper}>
+                                            <Text
+                                                style={styles.name}>
+                                                {item.name}
+                                            </Text>
+                                            {item.favor ?
+                                                <AntDesignIcon name="star" size={30} color="#FFE86C" /> :
+                                                <AntDesignIcon name="staro" size={30} color="#FFE86C" />
+                                            }
+
+                                        </View>
                                         {item.isShowing ?
                                             <View
                                                 style={styles.listItem_description}
                                             >
-                                                <TouchableHighlight
-                                                    onPress={() => _viewDetail(item)}
+                                                <TouchableOpacity
+                                                    onPress={() => _pageDetail(item)}
                                                 >
                                                     <View
                                                         style={styles.listItem_action}
                                                     >
                                                         <AntDesignIcon name="eyeo" size={30} color="#000000" />
-                                                        {/* <Icon style={styles.appbar_icon} name="plus" size={30} color="#ffffff" /> */}
                                                         <Text
                                                             style={{
                                                                 color: '#aaaaaa',
@@ -176,8 +233,8 @@ const Home: React.FC<HomeProps> = ({ navigation }) => {
                                                             view
                                                         </Text>
                                                     </View>
-                                                </TouchableHighlight>
-                                                <TouchableHighlight
+                                                </TouchableOpacity>
+                                                <TouchableOpacity
                                                     onPress={() => {
                                                         _removeItem(item.id)
                                                     }}
@@ -193,7 +250,7 @@ const Home: React.FC<HomeProps> = ({ navigation }) => {
                                                             remove
                                                         </Text>
                                                     </View>
-                                                </TouchableHighlight>
+                                                </TouchableOpacity>
                                             </View> :
                                             <Text
                                                 numberOfLines={2}
@@ -201,7 +258,8 @@ const Home: React.FC<HomeProps> = ({ navigation }) => {
                                                     color: '#aaaaaa',
                                                     fontWeight: 'bold',
                                                     fontSize: 20,
-                                                    width: 400
+                                                    width: 400,
+                                                    textAlign: 'justify'
                                                 }}>
                                                 {item.description}
                                             </Text>
@@ -209,7 +267,7 @@ const Home: React.FC<HomeProps> = ({ navigation }) => {
                                     </View>
                                 </View>
                             </View>
-                        </TouchableHighlight>
+                        </TouchableOpacity>
                     }
                     keyExtractor={item => item.id}
                 />
@@ -263,7 +321,7 @@ const styles = StyleSheet.create({
         paddingHorizontal: 10
     },
     count_action: {
-        marginHorizontal: 30,
+        marginHorizontal: 20,
         marginVertical: 20,
         display: 'flex',
         flexDirection: 'row',
@@ -282,10 +340,27 @@ const styles = StyleSheet.create({
         borderBottomWidth: 1,
         paddingVertical: 15
     },
+    listItem_selected: {
+        borderBottomColor: '#aaaaaa',
+        backgroundColor: '#ffffff',
+        borderBottomWidth: 1,
+        paddingVertical: 15
+    },
+    nameWrapper: {
+        marginBottom: 10,
+        display: 'flex',
+        flexDirection: 'row',
+        justifyContent: 'space-between'
+    },
+    name: {
+        color: '#333333',
+        fontWeight: 'bold',
+        fontSize: 23,
+    },
     listItem_description: {
         display: 'flex',
         flexDirection: 'row',
-        gap: 100,
+        gap: 150,
         paddingHorizontal: 10,
         marginTop: 5
     },
